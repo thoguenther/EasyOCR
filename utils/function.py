@@ -174,3 +174,60 @@ def run_grid_search_morph_only():
     df_summary = pd.DataFrame(summary)
     return best_df, df_summary, best_combo
 
+
+
+def run_baseline_easyocr():
+    results = []
+
+    # Bilder cachen
+    image_cache = []
+    for folder_name in sorted(os.listdir(dataset_path)):
+        if not folder_name.isdigit():
+            continue
+        true_label = int(folder_name.lstrip('0'))
+        folder_path = os.path.join(dataset_path, folder_name)
+        for img_name in os.listdir(folder_path):
+            img_path = os.path.join(folder_path, img_name)
+            img = cv2.imread(img_path)
+            if img is None:
+                continue
+            h, w = img.shape[:2]
+            image_cache.append({
+                'path': img_path,
+                'image': img,
+                'true_label': true_label,
+                'width': w,
+                'height': h
+            })
+
+    for item in image_cache:
+        img_path = item['path']
+        img = item['image']
+        true_label = item['true_label']
+        width = item['width']
+        resolution_category = categorize_resolution(width)
+
+        # Nur Graustufenbild (kein Preprocessing)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        result = reader.readtext(gray, detail=0)
+
+        predicted_label = int(result[0]) if result and result[0].isdigit() else None
+        correct = predicted_label == true_label
+
+        results.append({
+            'path': img_path,
+            'true_label': true_label,
+            'predicted_label': predicted_label,
+            'correct': correct,
+            'width': width,
+            'height': img.shape[0],
+            'resolution_category': resolution_category
+        })
+
+    df = pd.DataFrame(results)
+    acc_by_cat = df.groupby('resolution_category')['correct'].mean().to_dict()
+    mae = mean_absolute_error(
+        df.dropna(subset=['predicted_label'])['true_label'],
+        df.dropna(subset=['predicted_label'])['predicted_label']
+    )
+    return df, acc_by_cat, mae
