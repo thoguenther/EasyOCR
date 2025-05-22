@@ -10,8 +10,23 @@ from natsort import natsorted
 from PIL import Image
 import numpy as np
 from torch.utils.data import Dataset, ConcatDataset, Subset
-from torch._utils import _accumulate
+# from torch._utils import _accumulate
 import torchvision.transforms as transforms
+
+def _accumulate(iterable, fn=lambda x, y: x + y):
+    "Return running totals"
+    # _accumulate([1,2,3,4,5]) --> 1 3 6 10 15
+    # _accumulate([1,2,3,4,5], operator.mul) --> 1 2 6 24 120
+    it = iter(iterable)
+    try:
+        total = next(it)
+    except StopIteration:
+        return
+    yield total
+    for element in it:
+        total = fn(total, element)
+        yield total
+
 
 def contrast_grey(img):
     high = np.percentile(img, 90)
